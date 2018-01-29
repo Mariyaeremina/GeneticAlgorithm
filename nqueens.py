@@ -116,8 +116,6 @@ class Solver_8_queens:
                     fit_func += 0.12
                 else:
                     fit_func -= fit_func * 0.3
-        if len(temp) != 8:
-            fit_func -= fit_func * 0.3
         for i in range(len(temp)):
             if temp[i] == 0 or temp[i] == 9:
                 fit_func -= fit_func * 0.2
