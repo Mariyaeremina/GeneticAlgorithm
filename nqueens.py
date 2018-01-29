@@ -5,11 +5,12 @@ class Solver_8_queens:
     cross_prob = 0.0
     mut_prob = 0.0
     pop_size = 0
-    population = []
+    parent_population = []
+    child_population = []
     best_solution = 0
     current_solution = 0
 
-    def __init__(self, pop_size=100, cross_prob=0.6, mut_prob=0.4):
+    def __init__(self, pop_size=100, cross_prob=0.6, mut_prob=0.3):
         self.cross_prob = cross_prob
         self.mut_prob = mut_prob
         self.pop_size = pop_size
@@ -20,10 +21,10 @@ class Solver_8_queens:
         self.mutation()
         epoch_num = 0
         for i in range(max_epochs):
+            epoch_num = i + 1
             self.selection()
             if self.fitness(self.current_solution) > self.fitness(self.best_solution):
                 self.best_solution = self.current_solution
-                epoch_num = i + 1
             if self.fitness(self.current_solution) >= min_fitness:
                 break
             else:
@@ -32,9 +33,9 @@ class Solver_8_queens:
         best_fit = self.fitness(self.best_solution)
         temp = str(self.decode(self.best_solution))
         visualization = ''
-        for i in range(len(temp)):
-            for j in range(len(temp)):
-                if int(temp[i]) == j + 1:
+        for elem in temp:
+            for i in range(len(temp)):
+                if int(elem) == i + 1:
                     visualization += 'Q'
                 else:
                     visualization += '+'
@@ -45,27 +46,34 @@ class Solver_8_queens:
         string = str(individual)
         chromosome = '0b'
         for elem in string:
-            temp = bin(int(elem))[2:].zfill(4)
+            if int(elem) == 8:
+                temp = '000'
+            else:
+                temp = bin(int(elem))[2:].zfill(3)
             chromosome += temp
         return int(chromosome, 2)
 
     def decode(self, chromosome):
-        code = bin(chromosome)[2:].zfill(32)
+        code = bin(chromosome)[2:].zfill(24)
         phenotype = ''
         temp = []
         count = 0
-        for i in range(0, len(code), 4):
-            temp.append('0b' + code[count * 4 : i + 4])
-            phenotype += str(int(temp[count], 2))
+        for i in range(0, len(code), 3):
+            temp.append('0b' + code[count * 3: i + 3])
+            if int(temp[count], 2) == 0:
+                phenotype += '8'
+            else:
+                phenotype += str(int(temp[count], 2))
             count += 1
         return int(phenotype)
 
     def crossingover(self):
-        for i in range(len(self.population)):
+        self.child_population.clear()
+        for elem in self.parent_population:
             if random.random() <= self.cross_prob:
-                index = random.randint(1, len(self.population) - 1)
-                first_parent = self.population[i]
-                second_parent = self.population[index]
+                index = random.randint(1, len(self.parent_population) - 1)
+                first_parent = elem
+                second_parent = self.parent_population[index]
                 separate_point = random.randint(1, second_parent.bit_length() - 1)
                 a_start = first_parent >> separate_point << separate_point
                 b_start = second_parent >> separate_point << separate_point
@@ -73,13 +81,13 @@ class Solver_8_queens:
                 b_end = second_parent & (pow(2, separate_point) - 1)
                 first_child = a_start + b_end
                 second_child = b_start + a_end
-                self.population[i] = first_child
-                self.population[index] = second_child
+                self.child_population.append(first_child)
+                self.child_population.append(second_child)
 
     def mutation(self):
-        for i in range(len(self.population)):
+        for i in range(len(self.child_population)):
             if random.random() <= self.mut_prob:
-                phenotype = self.population[i]
+                phenotype = self.child_population[i]
                 genotype = bin(phenotype)
                 gen = phenotype.bit_length() - random.randint(0, phenotype.bit_length() - 1)
                 if genotype[gen + 1] == '0':
@@ -87,15 +95,15 @@ class Solver_8_queens:
                 else:
                     genotype = genotype[:gen + 1] + '0' + genotype[gen + 2:]
                 phenotype = int(genotype, 2)
-                self.population[i] = phenotype
+                self.child_population[i] = phenotype
 
     def fitness(self, genotype):
         fit_func = 0.0
         temp = []
         individual = self.decode(genotype)
         s = str(individual)
-        for i in range(len(s)):
-            temp.append(int(s[i]))
+        for elem in s:
+            temp.append(int(elem))
         for i in range(len(temp) - 1):
             for j in range(i + 1, len(temp)):
                 diff1 = abs(temp[i] - temp[j])
@@ -120,26 +128,27 @@ class Solver_8_queens:
         fit_sum = 0
         roulette_sectors = []
         max_fit = 0
+        common_population = self.child_population + self.parent_population
         selected_population = []
-        for i in range(len(self.population)):
-            fit = self.fitness(self.population[i])
+        for elem in common_population:
+            fit = self.fitness(elem)
             if fit >= max_fit:
                 max_fit = fit
-                self.current_solution = self.population[i]
+                self.current_solution = elem
             fit_sum += fit
             fit_func.append(fit)
         fit_func[0] /= fit_sum
         roulette_sectors.append(fit_func[0])
-        for i in range(1, len(self.population)):
+        for i in range(1, len(common_population)):
             fit_func[i] /= fit_sum
             roulette_sectors.append(roulette_sectors[i - 1] + fit_func[i])
-        for i in range(len(self.population)):
+        for i in range(self.pop_size):
             rand = random.random()
-            for k in range(len(self.population)):
+            for k in range(len(common_population)):
                 if rand <= roulette_sectors[k]:
-                    selected_population.append(self.population[k])
+                    selected_population.append(common_population[k])
                     break
-        self.population = selected_population
+        self.parent_population = selected_population
 
     def get_initial_population(self):
         for i in range(self.pop_size):
@@ -150,5 +159,5 @@ class Solver_8_queens:
             random.shuffle(phenotype)
             for k in range(len(phenotype)):
                 individual += str(phenotype[k])
-            self.population.append(self.encode(int(individual)))
+            self.parent_population.append(self.encode(int(individual)))
 
